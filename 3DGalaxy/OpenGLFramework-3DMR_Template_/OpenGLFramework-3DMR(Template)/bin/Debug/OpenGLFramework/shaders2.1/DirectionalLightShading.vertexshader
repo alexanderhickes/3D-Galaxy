@@ -1,0 +1,33 @@
+#version 120
+
+// Input vertex data, different for all executions of this shader.
+attribute vec3 vertexPosition_modelspace;
+in vec2 vertexUV;
+in vec3 vertexNormal_modelspace;
+
+// Output data ; will be interpolated for each fragment.
+in vec2 UV;
+in vec3 Normal_worldspace;
+in vec3 Light_worldspace;
+
+
+// Values that stay constant for the whole mesh.
+uniform mat4 MVP;
+uniform mat4 M;
+uniform vec3 LightDirection_worldspace;
+
+void main(){
+
+	// Output position of the vertex, in clip space : MVP * position
+	gl_Position =  MVP * vec4(vertexPosition_modelspace,1);
+	
+	// Orientation of the normal, in worldspace : M * normal
+	Normal_worldspace = normalize( M * vec4(vertexNormal_modelspace,0)).xyz;
+	
+	// UV of the vertex. No special space for this one.
+	UV = vertexUV;
+
+	// Light of the vertex: It is always constant
+	Light_worldspace=LightDirection_worldspace;
+}
+

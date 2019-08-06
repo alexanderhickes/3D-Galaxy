@@ -1,0 +1,408 @@
+#include "exampleCodePlanets_II.h"
+#include <OpenGLFramework/OpenGLFramework.h>
+#include <OpenGLFramework\3DUI_Utils\3DUI_Utils.h>
+#include <clientPrograms/FPS_Controller/FPS_Controller.h>
+#include "common\ObjFileParser.h"
+
+
+
+using namespace OpenGLFramework;
+
+// 0. Elements that we use to render the contents from our OpenGL program (render buffers and cameras)
+//0.1. A FrameBuffer, to write our scene to (this can be the monitor or a render to texture buffer)
+RenderBufferObject* def_fbo;				//This allows us to render to the monitor (window)
+
+//0.2. The Projection and view matrices that will control the location of our camera
+glm::mat4 P, V;
+FPS_Controller* cameraControl;				//This controls the camera from mouse and keyboard (FPS style).
+
+
+
+
+//**************************************************************************************************************************
+//1. Actual contents in our 3D world:					
+//1.1. Objects in our scene graph: They can be nodes or basic objects:
+//These are the nodes in the scene graph (a node can have children nodes/objects)
+ISceneNode* sunNode;
+ISceneNode* mercuryNode;
+ISceneNode* venusNode;
+ISceneNode* earthNode;
+ISceneNode* moonNode;
+ISceneNode* marsNode;
+ISceneNode* jupiterNode;
+ISceneNode* saturnNode;
+ISceneNode* uranusNode;
+ISceneNode* neptuneNode;
+//These are the objects for our three planets (they are basic nodes, cannot have children). 
+IVirtualObject *sun;
+IVirtualObject *mercury;
+IVirtualObject *venus;
+IVirtualObject *earth;
+IVirtualObject *moon;
+IVirtualObject *mars;
+IVirtualObject *jupiter;
+IVirtualObject *saturn;
+IVirtualObject *uranus;
+IVirtualObject *neptune;
+//1.2. We use the "Component" model. The components that build our objects are here:
+//... so far we only have components to define their appearance (per object rendering).
+//... note these components now describe both geometry and appearance (our raytracing engine had Geometry and Material as separate components)
+OpenGL_Renderable *sunRenderable, *mercuryRenderable, *venusRenderable, *earthRenderable, *moonRenderable, *marsRenderable, *jupiterRenderable, *saturnRenderable, *uranusRenderable, *neptuneRenderable;
+//1.3. Configuration parameters: These will help us control the sizes and distances between the objects
+// This is part of the "logic" of this first example
+//float sunSize=1.0f, mercurySize = 0.003507, venusSize = 0.008700f, earthSize = 0.009170f, moonSize = 0.1f, marsSize = 0.004883, jupiterSize = 0.102792236, saturnSize = 0.0866542056, uranusSize = 0.0367491014, neptuneSize = 0.0356060388;			//Size of each planet (actual)
+float sunSize = 1.0f, mercurySize = 0.375f, venusSize = 0.39f, earthSize = 0.40f, moonSize = 0.1f, marsSize = 0.30f, jupiterSize = 0.70f, saturnSize = 0.65f, uranusSize = 0.55f, neptuneSize = 0.50f;			//Size of each element (scaled)
+//float mercuryToSunDist = 5.0f, venusToSunDist = 10.0f, earthToSunDist = 15.0f, marsToSunDist = 20.0f, jupiterToSunDist = 30.0f, saturnToSunDist = 40.0f, uranusToSunDist = 50.0f, neptuneToSunDist = 60.0f;			//Size of planet distance to sun
+float mercuryToSunDist = 5.0f, venusToSunDist = 7.0f, earthToSunDist = 9.0f, marsToSunDist = 11.0f, jupiterToSunDist = 13.0f, saturnToSunDist = 15.0f, uranusToSunDist = 17.0f, neptuneToSunDist = 20.0f;
+float moonToEarthDist = 0.5f;			//Distances for the orbits (just some example values, change if you like)
+
+//float mercuryTranslationAnglePerSecond = 4.15f * 3.1415f / 12;
+//float venusTranslationAnglePerSecond = 1.63f * 3.1415f / 12;
+//float earthTranslationAnglePerSecond = 2.0f * 3.1415f / 12;		//One revolution around the sun every 24 seconds (2sec~1month)
+//float marsTranslationAnglePerSecond = 0.53f * 3.1415f / 12;
+//float jupiterTranslationAnglePerSecond = 0.08f * 3.1415f / 12;
+//float saturnTranslationAnglePerSecond = 0.034f * 3.1415f / 12;
+//float uranusTranslationAnglePerSecond = 0.012f * 3.1415f / 12;
+//float neptuneTranslationAnglePerSecond = 0.006f * 3.1415f / 12;
+
+float mercuryTranslationAnglePerSecond = 4.15f * 3.1415f / 12;
+float venusTranslationAnglePerSecond = 4.00f * 3.1415f / 12;
+float earthTranslationAnglePerSecond = 3.85f * 3.1415f / 12;		//One revolution around the sun every 24 seconds (2sec~1month)
+float marsTranslationAnglePerSecond = 3.70f * 3.1415f / 12;
+float jupiterTranslationAnglePerSecond = 3.55f * 3.1415f / 12;
+float saturnTranslationAnglePerSecond = 3.40f * 3.1415f / 12;
+float uranusTranslationAnglePerSecond = 3.25f * 3.1415f / 12;
+float neptuneTranslationAnglePerSecond = 3.10f * 3.1415f / 12;
+
+float mercuryRotationAnglePerSecond = 2 * 3.1415f / 2;
+float venusRotationAnglePerSecond = 2 * 3.1415f / 2;
+float earthRotationAnglePerSecond = 2 * 3.1415f / 2;		//One revolution per second (It should rotate 2*3.1415 * 15, to keep 2sec=1 month... but it is just to fast).
+float moonRotationAnglePerSecond = 2 * 3.1415f / 2;				//One rotation around the earth every 2 seconds (2sec~1 month)
+float marsRotationAnglePerSecond = 2 * 3.1415f / 2;
+float jupiterRotationAnglePerSecond = 2 * 3.1415f / 2;
+float saturnRotationAnglePerSecond = 2 * 3.1415f / 2;
+float uranusRotationAnglePerSecond = 2 * 3.1415f / 2;
+float neptuneRotationAnglePerSecond = 2 * 3.1415f / 2;
+
+float globalRotationControl = 1.0f;								//Global control for speed (it affects everything. If we set it to 2.0, stuff rotates twice s fast)
+
+//**************************************************************************************************************************
+//3. Methods required to run our program:
+//3.1. Create the contents and place them where appropriate
+void createWorldScene();
+//3.2. Render our world
+void renderWorldScene(RenderBufferObject* rf, glm::mat4 P,glm::mat4 V);
+//3.3. Update the world according to: user events (inputs), time, animations, etc...
+void updateWorldScene();
+//3.4. Deallocate the resources once our program is finihed.
+void destroyWorldScene();
+
+
+
+
+//**************************************************************************************************************************
+//4. Main program
+int main( void )
+{
+	//1. Initialize our framework
+	OpenGLFramework::createWindow(800,600);
+	OpenGLFramework::setupOpenGL();
+	//2. Create our scene
+	createWorldScene();
+	//3. Main program loop
+	do{
+		renderWorldScene(def_fbo,P,V);			//A. Send commands to trigger rendering						
+		OpenGLFramework::postRender();			//B. Ask OpenGL to display the final render (as soon as it is ready). We use "Double buffer".
+		updateWorldScene();						//C. React to user's inputs, update your animations...
+	} 
+	while( OpenGLFramework::programEnded());	//D. Check if the ESC key was pressed or the window was closed
+	//4. Finish the program
+	destroyWorldScene();
+	OpenGLFramework::destroyWindow();
+	return 0;
+}
+
+void createWorldScene(){
+	ISceneManager& scene = ISceneManager::instance();
+	//1. Create the camera that we will use to render the scene, and a controller, so we can move it with keyboard and mouse.
+	Camera* cam = new Camera("PrimaryCam", scene);
+	cam->setActive();
+	cameraControl = new FPS_Controller(cam);						//It controls the camera node
+	InputManager::addMouseListener(cameraControl);					//... using mouse ...
+	InputManager::addKeyboardListener(cameraControl);				//... and keyboard input.
+	
+	//2. Create the buffer where our stuff is going to be rendered to.
+	def_fbo = RenderBufferObject::createDefaultRenderBufferObject();
+	def_fbo->setBackgroundColour(0, 0, 0.2f);
+	
+	//3. Create our objects:
+	{//3.1. Create our sun object (the pattern to create objects is always the same (create object, add components and set everything up)
+		 //A. Create the object. 
+		sun = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		sunRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/sun.bmp");
+		sunRenderable->loadResourcesToMainMemory();
+		sunRenderable->allocateOpenGLResources();
+		//C.Add components to sun object.
+		sun->addComponent(sunRenderable);
+	}
+
+	{//3.2. Create our mercury object (the pattern to create objects is always the same (create object, add components and set everything up)
+	 //A. Create the object. GET TEXTURE!!!
+		mercury = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		mercuryRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/mercury.bmp");
+		mercuryRenderable->loadResourcesToMainMemory();
+		mercuryRenderable->allocateOpenGLResources();
+		//C.Add components to object.
+		mercury->addComponent(mercuryRenderable);
+	}
+
+	{//3.3. Create our venus object (the pattern to create objects is always the same (create object, add components and set everything up)
+	 //A. Create the object.GET TEXTURE!!!
+		venus = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		venusRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/venus.bmp");
+		venusRenderable->loadResourcesToMainMemory();
+		venusRenderable->allocateOpenGLResources();
+		//C.Add components to object.
+		venus->addComponent(venusRenderable);
+	}
+
+	{//3.4. Create our earth object (the pattern to create objects is always the same (create object, add components and set everything up)
+		//A. Create the object. 
+		earth = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		earthRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/earth.bmp");
+		earthRenderable->loadResourcesToMainMemory();
+		earthRenderable->allocateOpenGLResources();
+		//C.Add components to object.
+		earth->addComponent(earthRenderable);
+	}
+
+	{//3.5. Create our moon object (the pattern to create objects is always the same (create object, add components and set everything up)
+	    //A. Create the object. 
+		moon = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		moonRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/moon.bmp");
+		moonRenderable->loadResourcesToMainMemory();
+		moonRenderable->allocateOpenGLResources();
+		//C.Add components to object.
+		moon->addComponent(moonRenderable);
+	}
+
+	{//3.6. Create our earth object (the pattern to create objects is always the same (create object, add components and set everything up)
+	 //A. Create the object. GET TEXTURE!!!
+		mars = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		marsRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/mars.bmp");
+		marsRenderable->loadResourcesToMainMemory();
+		marsRenderable->allocateOpenGLResources();
+		//C.Add components to object.
+		mars->addComponent(marsRenderable);
+	}
+
+	{//3.7. Create our earth object (the pattern to create objects is always the same (create object, add components and set everything up)
+	 //A. Create the object. GET TEXTURE!!!
+		jupiter = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		jupiterRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/jupiter.bmp");
+		jupiterRenderable->loadResourcesToMainMemory();
+		jupiterRenderable->allocateOpenGLResources();
+		//C.Add components to object.
+		jupiter->addComponent(jupiterRenderable);
+	}
+
+	{//3.8. Create our earth object (the pattern to create objects is always the same (create object, add components and set everything up)
+	 //A. Create the object.  GET TEXTURE!!!
+		saturn = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		saturnRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/saturn.bmp");
+		saturnRenderable->loadResourcesToMainMemory();
+		saturnRenderable->allocateOpenGLResources();
+		//C.Add components to object.
+		saturn->addComponent(saturnRenderable);
+	}
+
+	{//3.9. Create our earth object (the pattern to create objects is always the same (create object, add components and set everything up)
+	 //A. Create the object.  GET TEXTURE!!!
+		uranus = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		uranusRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/uranus.bmp");
+		uranusRenderable->loadResourcesToMainMemory();
+		uranusRenderable->allocateOpenGLResources();
+		//C.Add components to object.
+		uranus->addComponent(uranusRenderable);
+	}
+
+	{//3.10. Create our earth object (the pattern to create objects is always the same (create object, add components and set everything up)
+	 //A. Create the object.  GET TEXTURE!!!
+		neptune = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		neptuneRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/neptune.bmp");
+		neptuneRenderable->loadResourcesToMainMemory();
+		neptuneRenderable->allocateOpenGLResources();
+		//C.Add components to object.
+		neptune->addComponent(neptuneRenderable);
+	}
+
+	//THIS IS FOR THE BACKGROUND. CHANGE TEXTURE TO STARS
+	{//3.1. Create our sun object (the pattern to create objects is always the same (create object, add components and set everything up)
+	 //A. Create the object. 
+		IVirtualObject* stars  = new IVirtualObject(scene);
+		//B. Create its components, and initialize them.
+		OpenGL_Renderable *starRenderable = (OpenGL_Renderable*)new TexturedOBJMesh_Renderable("media/sphere.obj", "media/starSkyBox_4.bmp");
+		starRenderable->loadResourcesToMainMemory();
+		starRenderable->allocateOpenGLResources();
+		//C.Add components to sun object.
+		stars->addComponent(starRenderable);
+		stars->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(800, -800, 800)));
+	}
+
+	//4. Create buttons: slow, start/pause, speed:
+	/*{InWorld_ClickableBox* slowButton = new InWorld_ClickableBox("./media/uvtemplate.bmp", 1.2f, 1.0f, 1.2f);
+		slowButton->buildGameObject();
+		slowButton->registerPressListener(new slowAnimation(this));
+		slowButton->getPivotNode()->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(6, 0.0f, 0)));
+*/
+	//5. Create the nodes of our scene graph:
+	sunNode = new ISceneNode(scene); //node to manipulate the sun
+	mercuryNode = new ISceneNode(scene); //node to manipulate mercury
+	venusNode = new ISceneNode(scene); //node to manipulate venus
+	earthNode = new ISceneNode(scene); // node to manipulate the earth
+	moonNode = new ISceneNode(scene); //node to manipulate the moon
+	marsNode = new ISceneNode(scene); //node to manipulate mars
+	jupiterNode = new ISceneNode(scene); //node to manipulate jupiter
+	saturnNode = new ISceneNode(scene); //node to manipulate saturn
+	uranusNode = new ISceneNode(scene); //node to manipulate uranus
+	neptuneNode = new ISceneNode(scene); //node to manipulate neptune
+	//5. Structure them (who is attached to whom?)
+	createSolarSystemStructure();
+}
+
+
+/**
+This method creates the structure to model the solar system (EXERCISE).
+The structure is the following:
+Root
+|
+SunNode						                             
+|
++-----------------------------------+
+|								    |									  
+Sun [Scale 1,1,1]                EarthNode [Rotate(everyframe) * Translate (earthToSunDist, 0,0)]
+									|
+				+-------------------+----------------+
+			  Earth [Scale 0.4,0.4,0.4]          MoonNode [Rotate(everyframe) * Translate (moonToEarth, 0,0)]
+													 |
+												   Moon [Scale 0.1,0.1,0.1]
+*/
+
+void createSolarSystemStructure() {
+	ISceneManager& scene = ISceneManager::instance();
+	scene.getRootNode().addChild(sunNode);
+
+	sunNode->addChild(sun);
+	sunNode->addChild(mercuryNode);
+	sunNode->addChild(venusNode);
+	sunNode->addChild(earthNode);
+	sunNode->addChild(marsNode);
+	sunNode->addChild(jupiterNode);
+	sunNode->addChild(saturnNode);
+	sunNode->addChild(uranusNode);
+	sunNode->addChild(neptuneNode);
+		
+		mercuryNode->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(mercuryToSunDist, 0, 0)));
+		mercuryNode->addChild(mercury);
+			mercury->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(mercurySize, mercurySize, mercurySize)));
+
+		venusNode->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(venusToSunDist, 0, 0)));
+		venusNode->addChild(venus);
+			venus->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(venusSize, venusSize, venusSize)));
+
+		earthNode->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(earthToSunDist, 0, 0)));
+		earthNode->addChild(earth);
+			earth->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(earthSize, earthSize, earthSize)));
+		earthNode->addChild(moonNode);
+
+			moonNode->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(moonToEarthDist, 0, 0)));
+			moonNode->addChild(moon);
+				moon->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(moonSize, moonSize, moonSize)));
+
+		marsNode->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(marsToSunDist, 0, 0)));
+		marsNode->addChild(mars);
+			mars->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(marsSize, marsSize, marsSize)));
+
+		jupiterNode->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(jupiterToSunDist, 0, 0)));
+		jupiterNode->addChild(jupiter);
+			jupiter->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(jupiterSize, jupiterSize, jupiterSize)));
+
+		saturnNode->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(saturnToSunDist, 0, 0)));
+		saturnNode->addChild(saturn);
+			saturn->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(saturnSize, saturnSize, saturnSize)));
+
+		uranusNode->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(uranusToSunDist, 0, 0)));
+		uranusNode->addChild(uranus);
+			uranus->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(uranusSize, uranusSize, uranusSize)));
+
+		neptuneNode->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(neptuneToSunDist, 0, 0)));
+		neptuneNode->addChild(neptune);
+			neptune->setLocalToParent(glm::scale(glm::mat4(1.0f), glm::vec3(neptuneSize, neptuneSize, neptuneSize)));
+}
+
+void updateWorldScene() {
+	//1. Get current time (used to animate the scene)
+	float timeF = OpenGLFramework::getTimeInSeconds();
+
+	//2. The framework provides a FPS-like control for the camera (P, V), using mouse and keyboard. 
+	cameraControl->updateNode(timeF);
+	Camera* cam = ISceneManager::instance().getActiveCamera();
+	P = cam->getProjectionMatrix();				//We read the P and V matrices from the controller
+	V = cam->getViewMatrix();					//... we will use them later for rendering.
+	
+	//3. ANIMATION FOR THE SOLAR SYSTEM
+	//3.1. Compute time elapsed since last frame.
+	static float lastTime = OpenGLFramework::getTimeInSeconds();	//This initialization is only run THE FIRST TIME 
+	timeF = OpenGLFramework::getTimeInSeconds();
+	float deltaT = lastTime - timeF;
+	lastTime = timeF;
+	//3.2. Animate the objects:
+	mercury->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*mercuryRotationAnglePerSecond, glm::vec3(0, 1, 0))*mercury->getLocalToParent());
+		mercuryNode->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*mercuryTranslationAnglePerSecond, glm::vec3(0, 1, 0))*mercuryNode->getLocalToParent());
+	venus->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*venusRotationAnglePerSecond, glm::vec3(0, 1, 0))*venus->getLocalToParent());
+		venusNode->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*venusTranslationAnglePerSecond, glm::vec3(0, 1, 0))*venusNode->getLocalToParent());
+	//
+	earth->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*earthRotationAnglePerSecond, glm::vec3(0, 1, 0))*earth->getLocalToParent());
+		earthNode->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*earthTranslationAnglePerSecond, glm::vec3(0, 1, 0))*earthNode->getLocalToParent());
+		moonNode->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*moonRotationAnglePerSecond, glm::vec3(0, 1, 0))*moonNode->getLocalToParent());
+	//
+	mars->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*marsRotationAnglePerSecond, glm::vec3(0, 1, 0))*mars->getLocalToParent());
+		marsNode->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*marsTranslationAnglePerSecond, glm::vec3(0, 1, 0))*marsNode->getLocalToParent());
+	jupiter->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*jupiterRotationAnglePerSecond, glm::vec3(0, 1, 0))*jupiter->getLocalToParent());
+		jupiterNode->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*jupiterTranslationAnglePerSecond, glm::vec3(0, 1, 0))*jupiterNode->getLocalToParent());
+	saturn->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*saturnRotationAnglePerSecond, glm::vec3(0, 1, 0))*saturn->getLocalToParent());
+		saturnNode->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*saturnTranslationAnglePerSecond, glm::vec3(0, 1, 0))*saturnNode->getLocalToParent());
+	uranus->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*uranusRotationAnglePerSecond, glm::vec3(0, 1, 0))*uranus->getLocalToParent());
+		uranusNode->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*uranusTranslationAnglePerSecond, glm::vec3(0, 1, 0))*uranusNode->getLocalToParent());
+	neptune->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*neptuneRotationAnglePerSecond, glm::vec3(0, 1, 0))*neptune->getLocalToParent());
+		neptuneNode->setLocalToParent(glm::rotate(glm::mat4(1.0f), deltaT*globalRotationControl*neptuneTranslationAnglePerSecond, glm::vec3(0, 1, 0))*neptuneNode->getLocalToParent());
+}
+
+void renderWorldScene(RenderBufferObject* rtt_fbo, glm::mat4 P,glm::mat4 V){
+		//1. Prepare the buffer for rendering:
+		rtt_fbo->preRender();
+		//2. Render all our contents
+		RenderableVisitor r(P, V);
+		ISceneManager::instance().getRootNode().visit(r);
+		rtt_fbo->postRender();		
+}
+
+void destroyWorldScene(){
+	// No need to worry about object destruction at the end of the program.
+	// All objects in the scene (children of root node) get destroyed when the framework is closed.
+	// Lights will also be destroyed.
+	// However, while the framework is running, you must delete any objects that you remove from the scene (unless you will insert it again later).
+}
+
+
+

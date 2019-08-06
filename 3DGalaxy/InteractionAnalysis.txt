@@ -1,0 +1,75 @@
+Create a clickedListener for all planets. On click:
+	Show image of information on that planet.
+
+1. Create class: 
+				showInfoSun_ClickedListener : public RayPickListener {
+					solarSystem* app;		
+				 public:
+					showInfoSun_ClickedListener(solarSystem* app) { this->app = app; }
+					virtual void rayPickInteraction(OpenGLFramework::IVirtualObject* objectPicked, int pixel_x, int pixel_y, float distance_LocalUnits, glm::vec4 intersectionPoint_Local) {
+					app->showInfoSun();
+				}
+...
+
+2. Create class: 
+				slowAnimation : public RayPickerListener {
+					solarSystem* app;
+				 public:
+					slowAnimation(solarSystem* app) { this -> app = app;}
+					virtual void rayPickInteraction(OpenGLFramework::IVirtualObject* objectPicked, int pixel_x, int pixel_y, float distance_LocalUnits, glm::vec4 intersectionPoint_Local) {
+					app->slowAnimation();
+				}
+				
+3. Restart update time:
+					class LoopAnimation : public AnimationListener {
+				public:
+					virtual void animationEnded(Animation* a) {
+						a->restart(OpenGLFramework::getTimeInSeconds());
+					}
+					virtual void animationUpdated(float time, Animation* a, OpenGLFramework::IVirtualObject* o) { ; }
+				};
+				
+4. create HUD: 
+				void solarSystem::createHUD_elements() {
+					HUD_Button* button1 = new HUD_Button("./media/rewind.bmp", -0.9f, 0.45f, -0.8f, 0.55f);
+					slowButton->buildGameObject();
+					slowButton->registerPressListener(new slowAnimation(this));
+					buttons.push_back(slowButton);
+
+					HUD_Button* fastButton = new HUD_Button("./media/sun.bmp", -0.9f, 0.25f, -0.8f, 0.35f);
+					fastButton->buildGameObject();
+					fastButton->registerPressListener(new speedAnimation);
+					buttons.push_back(fastButton);
+
+					//F. Add a listener for click interactions. It will create a Visitor, to detect click interactions with any buttons or any other "clickables"
+					OpenGLFramework::InputManager::addMouseListener(new ClickSelect());
+				}
+				
+Create 3 floating buttons:
+	1. Slows animation down by 1 unit
+	2. pauses animation
+	3. speeds animation up by 1 unit
+	
+1. Create HUD_button class (From WS9)
+	
+2. Create physical button:
+	
+		{InWorld_ClickableBox* slowButton = new InWorld_ClickableBox("./media/uvtemplate.bmp", 1.2f, 1.0f, 1.2f);
+		slowButton->buildGameObject();
+		slowButton->registerPressListener(new slowAnimation(this));
+		slowButton->getPivotNode()->setLocalToParent(glm::translate(glm::mat4(1.0f), glm::vec3(6, 0.0f, 0)));
+		clickableBoxes.push_back(boxButton1);
+
+3. animate objects:
+				void solarSystem::animateObjects(float time) {
+					static float lastFrameTime = time;
+					float timeSinseLastFrame = time - lastFrameTime;
+
+					AnimationVisitor r(time);
+					ISceneManager::instance().getRootNode().visit(r);
+					bb->update(time);
+					
+					lastFrameTime = time;
+				}
+				
+3. 

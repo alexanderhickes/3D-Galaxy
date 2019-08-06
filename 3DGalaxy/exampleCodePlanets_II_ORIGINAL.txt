@@ -1,0 +1,6 @@
+#pragma once
+void createExampleStructure();
+void createSolarSystemStructure(); //SOLUTION TO FIRST EXERCISE
+//Declare methods to control the logic of your application here (increase/decrease rotation speed, toggleWireframe ON/OFF,...)
+//void increaseRotationSpeed();
+//Add the others...

@@ -1,0 +1,76 @@
+#version 330
+
+// Interpolated values from the vertex shaders
+in vec2 UV;
+in vec3 Position_worldspace;
+in vec3 Normal_cameraspace;
+in vec3 EyeDirection_cameraspace;
+in vec3 LightDirection_cameraspace;
+
+// Values that stay constant for the whole mesh.
+uniform sampler2D myTextureSampler;
+uniform mat4 MV;
+uniform vec3 LightPosition_worldspace;
+uniform	vec3 LightColor;
+uniform float LightPower; //10..100
+uniform float Shininess;
+uniform vec3 Ka;
+uniform vec3 Kd;
+uniform vec3 Ks;
+
+
+// Output color of the fragment
+out vec4 color;
+
+void main(){
+
+	// Light emission properties
+	// You probably want to put them as uniforms
+
+	
+	
+	// Animate the texture coordinates for the surface of the sun 
+	vec2 tempUV = UV;
+	
+	
+	// Material properties: The diffuse color is in fact the planet texture at this fragment. 
+	// We retrieve the pixel color at coordinates tempUV.    
+	vec3 MaterialColor = texture2D( myTextureSampler, tempUV ).rgb;
+	//vec3 MaterialColor=vec3 (1,1,1);
+	vec3 MaterialDiffuseColor = Kd * MaterialColor;  
+	//The ambient color also uses the texture
+	vec3 MaterialAmbientColor = Ka * MaterialColor;
+	
+	//The specular color is a constant
+	vec3 MaterialSpecularColor = Ks;
+
+	// Distance to the light
+	float distance = length( LightPosition_worldspace - Position_worldspace);
+
+	// Normal of the computed fragment, in camera space
+	vec3 n = normalize( Normal_cameraspace );
+	// Direction of the light (from the fragment to the light)
+	vec3 l = normalize( LightDirection_cameraspace );
+	// Cosine of the angle between the normal and the light direction, 
+	// clamped above 0
+	//  - light is at the vertical of the triangle -> 1
+	//  - light is perpendicular to the triangle -> 0
+	//  - light is behind the triangle -> 0
+	float cosTheta = clamp( dot( n,l ), 0,1 );
+	
+	// Eye vector (towards the camera)
+	vec3 E = normalize(EyeDirection_cameraspace);
+	// Direction in which the triangle reflects the light
+	vec3 R = reflect(-l,n);
+	// Cosine of the angle between the Eye vector and the Reflect vector,
+	// clamped to 0
+	//  - Looking into the reflection -> 1
+	//  - Looking elsewhere -> < 1
+	float cosAlpha = clamp( dot( E,R ), 0,1 );
+	
+	// Now compute the color components differently depending on the planet
+	// They all have an ambient component  
+	color.rgb = MaterialAmbientColor;
+	color.rgb += MaterialDiffuseColor * LightColor * LightPower * cosTheta / (distance*distance);
+	color.rgb += MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha,Shininess) / (distance*distance);
+}
